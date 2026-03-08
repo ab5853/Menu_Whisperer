@@ -1,0 +1,38 @@
+Keys in GoogleGenAI class: [ 'constructor', 'interactions' ]
+Keys in client: [
+  'vertexai',         'apiKey',
+  'project',          'location',
+  'apiVersion',       'httpOptions',
+  'apiClient',        'models',
+  'live',             'batches',
+  'chats',            'caches',
+  'files',            'operations',
+  'authTokens',       'tunings',
+  'fileSearchStores'
+]
+Keys in client.live: [ 'apiClient', 'auth', 'webSocketFactory', 'music' ]
+Keys in prototype client.live: [ 'constructor', 'connect', 'isCallableTool' ]
+Keys in client.chats: [ 'modelsModule', 'apiClient' ]
+Keys in prototype chats: [ 'constructor', 'create' ]
+Keys in prototype models: [
+  'constructor',
+  'maybeMoveToResponseJsonSchem',
+  'processParamsMaybeAddMcpUsage',
+  'initAfcToolsMap',
+  'processAfcStream',
+  'generateContentInternal',
+  'generateContentStreamInternal',
+  'embedContentInternal',
+  'generateImagesInternal',
+  'editImageInternal',
+  'upscaleImageInternal',
+  'recontextImage',
+  'segmentImage',
+  'get',
+  'listInternal',
+  'update',
+  'delete',
+  'countTokens',
+  'computeTokens',
+  'generateVideosInternal'
+]

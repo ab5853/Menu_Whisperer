@@ -1,0 +1,126 @@
+client.live.connect config async connect(params) {
+        var _a, _b, _c, _d, _e, _f;
+        // TODO: b/404946746 - Support per request HTTP options.
+        if (params.config && params.config.httpOptions) {
+            throw new Error('The Live module does not support httpOptions at request-level in' +
+                ' LiveConnectConfig yet. Please use the client-level httpOptions' +
+                ' configuration instead.');
+        }
+        const websocketBaseUrl = this.apiClient.getWebsocketBaseUrl();
+        const apiVersion = this.apiClient.getApiVersion();
+        let url;
+        const clientHeaders = this.apiClient.getHeaders();
+        if (params.config &&
+            params.config.tools &&
+            hasMcpToolUsage(params.config.tools)) {
+            setMcpUsageHeader(clientHeaders);
+        }
+        const headers = mapToHeaders(clientHeaders);
+        if (this.apiClient.isVertexAI()) {
+            const project = this.apiClient.getProject();
+            const location = this.apiClient.getLocation();
+            const apiKey = this.apiClient.getApiKey();
+            const hasStandardAuth = (!!project && !!location) || !!apiKey;
+            if (this.apiClient.getCustomBaseUrl() && !hasStandardAuth) {
+                // Custom base URL without standard auth (e.g., proxy).
+                url = websocketBaseUrl;
+                // Auth headers are assumed to be in `clientHeaders` from httpOptions.
+            }
+            else {
+                url = `${websocketBaseUrl}/ws/google.cloud.aiplatform.${apiVersion}.LlmBidiService/BidiGenerateContent`;
+                await this.auth.addAuthHeaders(headers, url);
+            }
+        }
+        else {
+            const apiKey = this.apiClient.getApiKey();
+            let method = 'BidiGenerateContent';
+            let keyName = 'key';
+            if (apiKey === null || apiKey === void 0 ? void 0 : apiKey.startsWith('auth_tokens/')) {
+                console.warn('Warning: Ephemeral token support is experimental and may change in future versions.');
+                if (apiVersion !== 'v1alpha') {
+                    console.warn("Warning: The SDK's ephemeral token support is in v1alpha only. Please use const ai = new GoogleGenAI({apiKey: token.name, httpOptions: { apiVersion: 'v1alpha' }}); before session connection.");
+                }
+                method = 'BidiGenerateContentConstrained';
+                keyName = 'access_token';
+            }
+            url = `${websocketBaseUrl}/ws/google.ai.generativelanguage.${apiVersion}.GenerativeService.${method}?${keyName}=${apiKey}`;
+        }
+        let onopenResolve = () => { };
+        const onopenPromise = new Promise((resolve) => {
+            onopenResolve = resolve;
+        });
+        const callbacks = params.callbacks;
+        const onopenAwaitedCallback = function () {
+            var _a;
+            (_a = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onopen) === null || _a === void 0 ? void 0 : _a.call(callbacks);
+            onopenResolve({});
+        };
+        const apiClient = this.apiClient;
+        const websocketCallbacks = {
+            onopen: onopenAwaitedCallback,
+            onmessage: (event) => {
+                void handleWebSocketMessage(apiClient, callbacks.onmessage, event);
+            },
+            onerror: (_a = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onerror) !== null && _a !== void 0 ? _a : function (e) {
+            },
+            onclose: (_b = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) !== null && _b !== void 0 ? _b : function (e) {
+            },
+        };
+        const conn = this.webSocketFactory.create(url, headersToMap(headers), websocketCallbacks);
+        conn.connect();
+        // Wait for the websocket to open before sending requests.
+        await onopenPromise;
+        let transformedModel = tModel(this.apiClient, params.model);
+        if (this.apiClient.isVertexAI() &&
+            transformedModel.startsWith('publishers/')) {
+            const project = this.apiClient.getProject();
+            const location = this.apiClient.getLocation();
+            if (project && location) {
+                transformedModel =
+                    `projects/${project}/locations/${location}/` + transformedModel;
+            }
+        }
+        let clientMessage = {};
+        if (this.apiClient.isVertexAI() &&
+            ((_c = params.config) === null || _c === void 0 ? void 0 : _c.responseModalities) === undefined) {
+            // Set default to AUDIO to align with MLDev API.
+            if (params.config === undefined) {
+                params.config = { responseModalities: [Modality.AUDIO] };
+            }
+            else {
+                params.config.responseModalities = [Modality.AUDIO];
+            }
+        }
+        if ((_d = params.config) === null || _d === void 0 ? void 0 : _d.generationConfig) {
+            // Raise deprecation warning for generationConfig.
+            console.warn('Setting `LiveConnectConfig.generation_config` is deprecated, please set the fields on `LiveConnectConfig` directly. This will become an error in a future version (not before Q3 2025).');
+        }
+        const inputTools = (_f = (_e = params.config) === null || _e === void 0 ? void 0 : _e.tools) !== null && _f !== void 0 ? _f : [];
+        const convertedTools = [];
+        for (const tool of inputTools) {
+            if (this.isCallableTool(tool)) {
+                const callableTool = tool;
+                convertedTools.push(await callableTool.tool());
+            }
+            else {
+                convertedTools.push(tool);
+            }
+        }
+        if (convertedTools.length > 0) {
+            params.config.tools = convertedTools;
+        }
+        const liveConnectParameters = {
+            model: transformedModel,
+            config: params.config,
+            callbacks: params.callbacks,
+        };
+        if (this.apiClient.isVertexAI()) {
+            clientMessage = liveConnectParametersToVertex(this.apiClient, liveConnectParameters);
+        }
+        else {
+            clientMessage = liveConnectParametersToMldev(this.apiClient, liveConnectParameters);
+        }
+        delete clientMessage['config'];
+        conn.send(JSON.stringify(clientMessage));
+        return new Session(conn, this.apiClient);
+    }
