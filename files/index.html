@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Whisperer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon-wrap">
+                    <span class="material-icons-round logo-icon">restaurant_menu</span>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-name">Menu Whisperer</span>
+                    <span class="logo-sub">by Gemini Live</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="connection-badges">
+                    <div class="badge"><span class="material-icons-round">event</span> Calendar</div>
+                    <div class="badge"><span class="material-icons-round">mail</span> Gmail</div>
+                    <div class="badge"><span class="material-icons-round">map</span> Maps</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Persona Switcher -->
+        <div class="persona-switcher">
+            <button class="persona-btn active" id="btn-ari" data-persona="ari">
+                <div class="persona-avatar ari-avatar">A</div>
+                <div class="persona-info">
+                    <span class="persona-name">Ari Liu</span>
+                    <span class="persona-origin">29 · San Francisco, CA</span>
+                </div>
+                <span class="material-icons-round check-icon">check_circle</span>
+            </button>
+            <button class="persona-btn" id="btn-popo" data-persona="popo">
+                <div class="persona-avatar popo-avatar">P</div>
+                <div class="persona-info">
+                    <span class="persona-name">Popo Batbold</span>
+                    <span class="persona-origin">34 · Ulaanbaatar, Mongolia</span>
+                </div>
+                <span class="material-icons-round check-icon">check_circle</span>
+            </button>
+        </div>
+
+        <!-- Persona Detail Card -->
+        <div class="persona-card" id="persona-card">
+            <div class="persona-card-inner" id="persona-card-ari">
+                <div class="chip-row">
+                    <span class="chip caution"><span class="material-icons-round">warning_amber</span> IBS</span>
+                    <span class="chip caution"><span class="material-icons-round">block</span> No Dairy</span>
+                    <span class="chip positive"><span class="material-icons-round">favorite_border</span> Umami</span>
+                    <span class="chip neutral"><span class="material-icons-round">set_meal</span> Prefers Pork</span>
+                    <span class="chip info"><span class="material-icons-round">calendar_today</span> Day 3 · Vienna</span>
+                </div>
+                <div class="schedule-row">
+                    <span class="material-icons-round">schedule</span>
+                    Lunch now → Belvedere 3 PM → Special dinner 7 PM → Salzburg train 8:15 AM tmrw
+                </div>
+            </div>
+            <div class="persona-card-inner hidden" id="persona-card-popo">
+                <div class="chip-row">
+                    <span class="chip positive"><span class="material-icons-round">check_circle_outline</span> No Restrictions</span>
+                    <span class="chip positive"><span class="material-icons-round">fitness_center</span> Protein Only</span>
+                    <span class="chip positive"><span class="material-icons-round">local_fire_department</span> Red Meat</span>
+                    <span class="chip neutral"><span class="material-icons-round">science</span> Offal OK</span>
+                    <span class="chip info"><span class="material-icons-round">flight_land</span> Day 1 · Vienna</span>
+                </div>
+                <div class="schedule-row">
+                    <span class="material-icons-round">schedule</span>
+                    Just landed, starving → Walking tour 4 PM → Cousin dinner 8 PM → Full day tmrw
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Area -->
+        <div class="main-content">
+            <div class="camera-container" id="camera-container">
+                <video id="camera-feed" autoplay playsinline muted></video>
+                <div class="camera-overlay" id="camera-overlay">
+                    <span class="material-icons-round overlay-icon">photo_camera</span>
+                    <p>Point your camera at a menu</p>
+                    <p class="overlay-sub">Click Start Session to begin</p>
+                </div>
+                <div class="live-indicator" id="camera-label">
+                    <span class="live-dot"></span> LIVE
+                </div>
+            </div>
+
+            <div class="transcript-panel">
+                <div class="transcript-header">
+                    <span class="material-icons-round">forum</span>
+                    Conversation
+                </div>
+                <div class="transcript-body" id="transcript">
+                    <div class="transcript-msg system-msg">
+                        Select a persona and start a session to begin
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="ctrl-btn" id="mic-btn" disabled>
+                <span class="material-icons-round">mic</span>
+                <span class="ctrl-label mic-label">Mute</span>
+            </button>
+            <button class="ctrl-btn primary" id="session-btn">
+                <span class="material-icons-round session-icon">play_arrow</span>
+                <span class="ctrl-label session-label">Start Session</span>
+            </button>
+            <button class="ctrl-btn" id="camera-toggle-btn" disabled>
+                <span class="material-icons-round">videocam</span>
+                <span class="ctrl-label camera-label-text">Camera</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="personas.js"></script>
+    <script src="gemini-live.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
