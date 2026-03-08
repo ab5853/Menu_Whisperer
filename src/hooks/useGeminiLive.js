@@ -15,7 +15,7 @@ export function useGeminiLive() {
   // Buffer text chunks before final emit
   const streamingTextRef = useRef('');
 
-  const connect = async () => {
+  const connect = async (systemPrompt) => {
     if (isConnected) return;
 
     try {
@@ -26,8 +26,13 @@ export function useGeminiLive() {
         return;
       }
 
-      aiRef.current = new GoogleGenAI({ apiKey });
+      const prompt = systemPrompt || "You are a local food and menu guide helping a traveler. Identify menu items shown on camera, translate them explicitly, and talk aloud to the user. Wait for visual input.";
+
+      console.log('[MenuWhisperer] Connecting with API key:', apiKey.substring(0, 8) + '...');
+
+      aiRef.current = new GoogleGenAI({ apiKey, apiVersion: 'v1alpha' });
       const handleServerMessage = (message) => {
+        console.log('[MenuWhisperer] Server message received:', Object.keys(message));
         const serverContent = message.serverContent;
         if (!serverContent) return;
 
@@ -76,34 +81,57 @@ export function useGeminiLive() {
         }
       };
 
+      console.log('[MenuWhisperer] Calling ai.live.connect...');
       sessionRef.current = await aiRef.current.live.connect({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash-native-audio-preview-12-2025",
         config: {
           systemInstruction: {
-            parts: [{ text: "You are a local food and menu guide helping a traveler. Identify menu items shown on camera, translate them explicitly, and talk aloud to the user. Wait for visual input." }]
+            parts: [{ text: prompt }]
           },
           responseModalities: ["AUDIO"]
         },
         callbacks: {
+          onopen: () => {
+            console.log('[MenuWhisperer] WebSocket OPEN');
+          },
           onmessage: handleServerMessage,
           onerror: (err) => {
-            console.error("Live session stream error:", err);
-            disconnect();
+            console.error('[MenuWhisperer] WebSocket ERROR:', err);
           },
-          onclose: () => {
-            console.log("Live session closed.");
-            disconnect();
+          onclose: (e) => {
+            console.log('[MenuWhisperer] WebSocket CLOSED, code:', e?.code, 'reason:', e?.reason);
+            // Only auto-disconnect if we were previously connected
+            setIsConnected(prev => {
+              if (prev) {
+                // We were connected, now we're closing — clean up
+                setIsMicOn(false);
+                if (audioRecorderRef.current) {
+                  audioRecorderRef.current.stop();
+                  audioRecorderRef.current = null;
+                }
+                if (audioStreamerRef.current) {
+                  audioStreamerRef.current.stop();
+                  audioStreamerRef.current = null;
+                }
+                sessionRef.current = null;
+                setMessages(msgs => [...msgs, { role: 'model', text: `Session ended (code: ${e?.code || 'unknown'}).`, isFinal: true }]);
+              }
+              return false;
+            });
           }
         }
       });
 
+      console.log('[MenuWhisperer] Session object:', sessionRef.current);
+      console.log('[MenuWhisperer] Session methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(sessionRef.current)));
+
       audioStreamerRef.current = new AudioStreamer();
       setIsConnected(true);
 
-      setMessages([{ role: 'model', text: 'Connected successfully. Listening...', isFinal: true }]);
+      setMessages([{ role: 'model', text: 'Connected! Point your camera at a menu and enable the mic to chat.', isFinal: true }]);
 
     } catch (err) {
-      console.error("Failed to connect to Gemini Live:", err);
+      console.error('[MenuWhisperer] Connection FAILED:', err);
       setMessages([{ role: 'model', text: `Connection Failed: ${err.message}`, isFinal: true }]);
     }
   };
@@ -116,10 +144,10 @@ export function useGeminiLive() {
     
     if (sessionRef.current) {
       try {
-        // Many WebSocket implementations have a close or socket cleanup on the backend.
-        // We'll reset reference so it falls out of scope.
-        // @google/genai session does not have close() explicitly documented, wait for cleanup
-      } catch (e) {} 
+        sessionRef.current.close();
+      } catch (e) {
+        console.warn("Error closing session:", e);
+      }
       sessionRef.current = null;
     }
     
@@ -147,11 +175,10 @@ export function useGeminiLive() {
       audioRecorderRef.current = new AudioRecorder((base64PCM) => {
         if (sessionRef.current) {
           try {
-            sessionRef.current.send({
-              realtimeInput: {
-                mediaChunks: [
-                  { mimeType: 'audio/pcm;rate=16000', data: base64PCM }
-                ]
+            sessionRef.current.sendRealtimeInput({
+              audio: {
+                data: base64PCM,
+                mimeType: 'audio/pcm;rate=16000'
               }
             });
           } catch (e) {
@@ -173,11 +200,10 @@ export function useGeminiLive() {
       : base64JPEG;
       
     try {
-      sessionRef.current.send({
-        realtimeInput: {
-          mediaChunks: [
-            { mimeType: 'image/jpeg', data: base64Data }
-          ]
+      sessionRef.current.sendRealtimeInput({
+        media: {
+          data: base64Data,
+          mimeType: 'image/jpeg'
         }
       });
     } catch (e) {

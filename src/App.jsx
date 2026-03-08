@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, MicOff, Video, VideoOff, Play, Square, MessageSquare } from 'lucide-react';
+import { Camera, Mic, MicOff, Video, VideoOff, Play, Square, MessageSquare, User } from 'lucide-react';
 import { useGeminiLive } from './hooks/useGeminiLive';
+import { PERSONAS } from './data/personas';
 
 function App() {
   const [stream, setStream] = useState(null);
+  const [activePersona, setActivePersona] = useState(PERSONAS[0]);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
   
-  // Custom hook for Gemini Live connection natively handling audio/WebSocket
   const { isConnected, messages, isMicOn, connect, disconnect, toggleMic, sendImage } = useGeminiLive();
 
   // Handle webcam video mounting
@@ -27,7 +28,6 @@ function App() {
   useEffect(() => {
     let intervalId;
     if (isConnected && stream && videoRef.current) {
-      // Create a hidden canvas if not already created
       if (!canvasRef.current) {
         canvasRef.current = document.createElement('canvas');
         canvasRef.current.width = 640;
@@ -41,7 +41,7 @@ function App() {
           const base64JPEG = canvasRef.current.toDataURL('image/jpeg', 0.8);
           sendImage(base64JPEG);
         }
-      }, 1000); // 1 frame per second to avoid completely flooding the bandwidth natively, Gemini processes 1fps visuals nicely
+      }, 1000);
     }
 
     return () => {
@@ -63,6 +63,21 @@ function App() {
     }
   };
 
+  const switchPersona = async (persona) => {
+    if (persona.id === activePersona.id) return;
+    setActivePersona(persona);
+    if (isConnected) {
+      disconnect();
+      // Small delay to let WebSocket close cleanly before reconnecting
+      await new Promise(r => setTimeout(r, 500));
+      connect(persona.systemPrompt);
+    }
+  };
+
+  const handleConnect = () => {
+    connect(activePersona.systemPrompt);
+  };
+
   useEffect(() => {
     return () => {
       if (stream) {
@@ -71,17 +86,61 @@ function App() {
     };
   }, [stream]);
 
+  // Dynamic accent color based on persona
+  const accentColor = activePersona.id === 'ari' ? 'ari' : 'popo';
+
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col md:flex-row font-sans">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
-        {/* Top Banner */}
-        <header className="p-4 md:p-6 border-b border-gray-800 bg-black/20 flex flex-col items-center sm:items-start shrink-0">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-saffron to-saffron-dark bg-clip-text text-transparent">
-            Menu Whisperer
-          </h1>
-          <p className="text-gray-400 mt-1 italic text-sm">Your AI local friend, anywhere in the world</p>
+        {/* Top Banner with Persona Switcher */}
+        <header className="p-4 md:p-5 border-b border-gray-800 bg-black/20 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Title */}
+            <div className="shrink-0">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-saffron to-saffron-dark bg-clip-text text-transparent">
+                Menu Whisperer
+              </h1>
+              <p className="text-gray-500 italic text-xs mt-0.5">Your AI local friend, anywhere in the world</p>
+            </div>
+
+            {/* Persona Switcher */}
+            <div className="flex-1 flex flex-col gap-2 sm:items-end">
+              <div className="flex gap-2">
+                {PERSONAS.map((persona) => {
+                  const isActive = persona.id === activePersona.id;
+                  const colorClasses = persona.id === 'ari'
+                    ? isActive 
+                      ? 'bg-ari text-white shadow-lg shadow-ari/25 border-ari' 
+                      : 'bg-transparent text-gray-400 border-gray-700 hover:border-ari/50 hover:text-ari'
+                    : isActive
+                      ? 'bg-popo text-white shadow-lg shadow-popo/25 border-popo'
+                      : 'bg-transparent text-gray-400 border-gray-700 hover:border-popo/50 hover:text-popo';
+
+                  return (
+                    <button
+                      key={persona.id}
+                      onClick={() => switchPersona(persona)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-200 active:scale-95 ${colorClasses}`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      {persona.name}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Bio Card */}
+              <div className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-300 ${
+                activePersona.id === 'ari' 
+                  ? 'bg-ari/5 border-ari/20 text-ari' 
+                  : 'bg-popo/5 border-popo/20 text-popo'
+              }`}>
+                {activePersona.bio}
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* Center - Camera Placeholder */}
@@ -109,10 +168,10 @@ function App() {
             )}
             
             {/* Viewfinder Decorative Elements */}
-            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-saffron opacity-50 pointer-events-none z-10"></div>
-            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-saffron opacity-50 pointer-events-none z-10"></div>
-            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-saffron opacity-50 pointer-events-none z-10"></div>
-            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-saffron opacity-50 pointer-events-none z-10"></div>
+            <div className={`absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 opacity-50 pointer-events-none z-10 transition-colors duration-300 ${activePersona.id === 'ari' ? 'border-ari' : 'border-popo'}`}></div>
+            <div className={`absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 opacity-50 pointer-events-none z-10 transition-colors duration-300 ${activePersona.id === 'ari' ? 'border-ari' : 'border-popo'}`}></div>
+            <div className={`absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 opacity-50 pointer-events-none z-10 transition-colors duration-300 ${activePersona.id === 'ari' ? 'border-ari' : 'border-popo'}`}></div>
+            <div className={`absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 opacity-50 pointer-events-none z-10 transition-colors duration-300 ${activePersona.id === 'ari' ? 'border-ari' : 'border-popo'}`}></div>
           </div>
         </main>
 
@@ -121,7 +180,11 @@ function App() {
           <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-3 sm:gap-4">
             
             {!isConnected ? (
-              <button onClick={connect} className="flex items-center gap-2 px-5 py-3 sm:px-8 sm:py-4 bg-saffron hover:bg-saffron-dark text-black font-bold rounded-full transition-all shadow-lg shadow-saffron/20 active:scale-95">
+              <button onClick={handleConnect} className={`flex items-center gap-2 px-5 py-3 sm:px-8 sm:py-4 font-bold rounded-full transition-all shadow-lg active:scale-95 ${
+                activePersona.id === 'ari' 
+                  ? 'bg-ari hover:bg-ari-dark text-white shadow-ari/20' 
+                  : 'bg-popo hover:bg-popo-dark text-white shadow-popo/20'
+              }`}>
                 <Play className="w-5 h-5" fill="currentColor" />
                 Start Session
               </button>
@@ -145,7 +208,9 @@ function App() {
               disabled={!isConnected}
               className={`flex items-center gap-2 px-5 py-3 sm:px-6 sm:py-4 border text-white font-medium rounded-full transition-all shadow-lg
                 ${!isConnected ? 'opacity-50 cursor-not-allowed bg-black/40 border-gray-800 text-gray-500' 
-                  : isMicOn ? 'bg-saffron text-black border-saffron shadow-saffron/20' : 'bg-panel-bg hover:bg-gray-800 border-gray-700 active:scale-95'}
+                  : isMicOn 
+                    ? (activePersona.id === 'ari' ? 'bg-ari text-white border-ari shadow-ari/20' : 'bg-popo text-white border-popo shadow-popo/20')
+                    : 'bg-panel-bg hover:bg-gray-800 border-gray-700 active:scale-95'}
               `}>
               {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-gray-400" />}
               <span className="hidden sm:inline">{isMicOn ? 'Mic On' : 'Mic Off'}</span>
@@ -159,15 +224,15 @@ function App() {
       <aside className="w-full md:w-[380px] lg:w-[450px] bg-panel-bg border-t md:border-t-0 md:border-l border-gray-800 flex flex-col h-[50vh] md:h-screen shrink-0 relative z-10 shadow-2xl">
         <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-black/20 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-saffron/10 rounded-lg">
-              <MessageSquare className="w-5 h-5 text-saffron" />
+            <div className={`p-2 rounded-lg transition-colors duration-300 ${activePersona.id === 'ari' ? 'bg-ari/10' : 'bg-popo/10'}`}>
+              <MessageSquare className={`w-5 h-5 transition-colors duration-300 ${activePersona.id === 'ari' ? 'text-ari' : 'text-popo'}`} />
             </div>
             <h2 className="font-semibold text-gray-100 tracking-wide">Live Transcript</h2>
           </div>
           {isConnected && (
             <div className="flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-saffron opacity-40"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-saffron"></span>
+              <span className={`animate-ping absolute inline-flex h-3 w-3 rounded-full opacity-40 ${activePersona.id === 'ari' ? 'bg-ari' : 'bg-popo'}`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${activePersona.id === 'ari' ? 'bg-ari' : 'bg-popo'}`}></span>
             </div>
           )}
         </div>
@@ -176,20 +241,20 @@ function App() {
           
           {messages.length === 0 ? (
             <div className="flex flex-col gap-1.5 animate-fade-in">
-              <span className="text-xs text-saffron font-bold uppercase tracking-wider flex items-center gap-1.5 ml-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-saffron"></span>
+              <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ml-1 transition-colors duration-300 ${activePersona.id === 'ari' ? 'text-ari' : 'text-popo'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${activePersona.id === 'ari' ? 'bg-ari' : 'bg-popo'}`}></span>
                 Menu Whisperer
               </span>
               <div className="bg-gray-800/60 rounded-2xl rounded-tl-sm p-4 text-gray-300 border border-gray-700/50 shadow-inner leading-relaxed">
-                Welcome! Start a session and point your camera at a menu to begin translating.
+                Hey {activePersona.name.split(' ')[0]}! Start a session and point your camera at a menu to begin.
               </div>
             </div>
           ) : (
             messages.map((msg, i) => (
               <div key={i} className={`flex flex-col gap-1.5 animate-fade-in ${msg.role === 'user' ? 'items-end' : ''}`}>
-                <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${msg.role === 'user' ? 'text-gray-400 mr-1' : 'text-saffron ml-1'}`}>
-                  {msg.role === 'model' && <span className="w-1.5 h-1.5 rounded-full bg-saffron"></span>}
-                  {msg.role === 'model' ? 'Menu Whisperer' : 'Traveler'}
+                <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${msg.role === 'user' ? 'text-gray-400 mr-1' : (activePersona.id === 'ari' ? 'text-ari ml-1' : 'text-popo ml-1')}`}>
+                  {msg.role === 'model' && <span className={`w-1.5 h-1.5 rounded-full ${activePersona.id === 'ari' ? 'bg-ari' : 'bg-popo'}`}></span>}
+                  {msg.role === 'model' ? 'Menu Whisperer' : activePersona.name.split(' ')[0]}
                 </span>
                 <div className={`rounded-2xl p-4 text-gray-300 border shadow-inner leading-relaxed ${
                   msg.role === 'user' 
@@ -205,22 +270,21 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
         
-        {/* Placeholder Chat Input / Status */}
+        {/* Status Bar */}
         <div className="p-4 bg-black/40 border-t border-gray-800 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3 px-4 py-3 bg-dark-bg rounded-xl border border-gray-800 shadow-inner">
             <div className="flex gap-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-saffron animate-bounce' : 'bg-gray-500'}`} style={{animationDelay: '0ms'}}></div>
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-saffron animate-bounce' : 'bg-gray-500'}`} style={{animationDelay: '150ms'}}></div>
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-saffron animate-bounce' : 'bg-gray-500'}`} style={{animationDelay: '300ms'}}></div>
+              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? (activePersona.id === 'ari' ? 'bg-ari animate-bounce' : 'bg-popo animate-bounce') : 'bg-gray-500'}`} style={{animationDelay: '0ms'}}></div>
+              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? (activePersona.id === 'ari' ? 'bg-ari animate-bounce' : 'bg-popo animate-bounce') : 'bg-gray-500'}`} style={{animationDelay: '150ms'}}></div>
+              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? (activePersona.id === 'ari' ? 'bg-ari animate-bounce' : 'bg-popo animate-bounce') : 'bg-gray-500'}`} style={{animationDelay: '300ms'}}></div>
             </div>
             <span className="text-sm text-gray-400 italic">
-              {isConnected ? (isMicOn ? 'Listening to mic input...' : 'Session active. Enable mic to talk.') : 'Offline'}
+              {isConnected ? (isMicOn ? `Listening to ${activePersona.name.split(' ')[0]}...` : `Session active for ${activePersona.name.split(' ')[0]}. Enable mic to talk.`) : 'Offline'}
             </span>
           </div>
         </div>
       </aside>
 
-      {/* Global minimal styles for things like scrollbar that standard tailwind doesn't cover natively out-of-the-box perfectly without plugins */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
